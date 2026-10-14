@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "game-dev": {
+      "source": "Sudhanshu5669/Html5-Gamedev-Skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/game-dev/SKILL.md",
+      "computedHash": "f118c1ae3c362452983bdecf7b434689c49519f47555478c8727e119eb8701bc"
+    }
+  }
+}

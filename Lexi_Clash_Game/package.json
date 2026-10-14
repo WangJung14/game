@@ -1,0 +1,23 @@
+{
+  "name": "lexi-clash",
+  "version": "0.1.0",
+  "description": "Lexi Clash: English Battle Arena — educational multiplayer word game",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "test": "node --test server/__tests__/*.test.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "socket.io": "4.8.4"
+  },
+  "devDependencies": {
+    "nodemon": "3.1.10",
+    "socket.io-client": "4.8.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT"
+}
