@@ -27,6 +27,10 @@ function createGameManager(options = {}) {
   const schedule = options.schedule || setTimeout;
   const cancel = options.cancel || clearTimeout;
   const autoSchedule = options.autoSchedule !== false;
+  const countdownMs = options.countdownMs ?? COUNTDOWN_MS;
+  const graceMs = options.graceMs ?? GRACE_MS;
+  const resultMs = options.resultMs ?? RESULT_MS;
+  const onEvent = options.onEvent || (() => {});
 
   function transition(game, allowedStates, nextState) {
     if (!allowedStates.includes(game.state)) {
@@ -43,7 +47,8 @@ function createGameManager(options = {}) {
     const game = {
       roomId: room.roomId, room, questions: questions.slice(), currentRoundIndex: -1, state: STATES.LOBBY,
       previousState: null, roundTimer: null, nextRoundTimer: null, roundStartedAt: null, endsAt: null,
-      submissions: new Map(), teamScores: { red: createTeamScore(), blue: createTeamScore() }, pausedAt: null
+      submissions: new Map(), submissionHistory: new Map(),
+      teamScores: { red: createTeamScore(), blue: createTeamScore() }, pausedAt: null
     };
     games.set(room.roomId, game);
     return game;
@@ -70,9 +75,11 @@ function createGameManager(options = {}) {
       throw gameError('NOT_ENOUGH_PLAYERS', 'At least one connected player per team is required');
     }
     transition(game, [STATES.LOBBY], STATES.COUNTDOWN);
-    game.endsAt = now() + COUNTDOWN_MS;
-    game.roundTimer = scheduleTimer(() => nextQuestion(roomId), COUNTDOWN_MS);
-    return { startsIn: COUNTDOWN_MS / 1000, endsAt: game.endsAt };
+    game.endsAt = now() + countdownMs;
+    game.roundTimer = scheduleTimer(() => nextQuestion(roomId), countdownMs);
+    const payload = { startsIn: countdownMs / 1000, endsAt: game.endsAt };
+    onEvent('game:countdown', payload, game);
+    return payload;
   }
 
   function nextQuestion(roomId) {
@@ -86,8 +93,11 @@ function createGameManager(options = {}) {
     game.roundStartedAt = now();
     const question = game.questions[game.currentRoundIndex];
     game.endsAt = game.roundStartedAt + question.timeLimitSec * 1000;
-    game.roundTimer = scheduleTimer(() => lockQuestion(roomId), question.timeLimitSec * 1000 + GRACE_MS);
-    return getQuestionPayload(game);
+    game.submissionHistory.set(question.id, game.submissions);
+    game.roundTimer = scheduleTimer(() => lockQuestion(roomId), question.timeLimitSec * 1000 + graceMs);
+    const payload = getQuestionPayload(game);
+    onEvent('question:show', payload, game);
+    return payload;
   }
 
   function getQuestionPayload(game) {
@@ -103,7 +113,7 @@ function createGameManager(options = {}) {
 
   function submitAnswer(roomId, playerId, questionId, answer, submittedAt = now()) {
     const game = requireGame(roomId);
-    if (game.state !== STATES.QUESTION_ACTIVE || submittedAt > game.endsAt + GRACE_MS) {
+    if (game.state !== STATES.QUESTION_ACTIVE || submittedAt > game.endsAt + graceMs) {
       throw gameError('QUESTION_LOCKED', 'Question is not accepting answers');
     }
     const question = game.questions[game.currentRoundIndex];
@@ -147,8 +157,10 @@ function createGameManager(options = {}) {
       });
     }
     transition(game, [STATES.QUESTION_LOCKED], STATES.ROUND_RESULT);
-    game.nextRoundTimer = scheduleTimer(() => nextQuestion(roomId), RESULT_MS);
-    return getRoundResult(game);
+    game.nextRoundTimer = scheduleTimer(() => nextQuestion(roomId), resultMs);
+    const payload = getRoundResult(game);
+    onEvent('round:result', payload, game);
+    return payload;
   }
 
   function getRoundResult(game) {
@@ -183,11 +195,13 @@ function createGameManager(options = {}) {
 
   function endGame(roomId) {
     const game = requireGame(roomId);
-    if (game.state === STATES.FINISHED) return { winner: determineWinner(game), teamScores: game.teamScores };
+    if (game.state === STATES.FINISHED) return getGameResult(game);
     if (game.roundTimer) cancel(game.roundTimer);
     if (game.nextRoundTimer) cancel(game.nextRoundTimer);
     transition(game, [STATES.COUNTDOWN, STATES.QUESTION_ACTIVE, STATES.QUESTION_LOCKED, STATES.ROUND_RESULT, STATES.PAUSED], STATES.FINISHED);
-    return { winner: determineWinner(game), teamScores: game.teamScores };
+    const payload = getGameResult(game);
+    onEvent('game:over', payload, game);
+    return payload;
   }
 
   function pauseGame(roomId) {
@@ -208,17 +222,79 @@ function createGameManager(options = {}) {
     game.pausedAt = null;
     if (game.previousState === STATES.QUESTION_ACTIVE) {
       transition(game, [STATES.PAUSED], STATES.QUESTION_ACTIVE);
-      const remainingMs = game.endsAt + GRACE_MS - now();
+      const remainingMs = game.endsAt + graceMs - now();
       if (remainingMs <= 0) return lockQuestion(roomId);
       game.roundTimer = scheduleTimer(() => lockQuestion(roomId), remainingMs);
       return game;
     }
     transition(game, [STATES.PAUSED], STATES.ROUND_RESULT);
-    game.nextRoundTimer = scheduleTimer(() => nextQuestion(roomId), RESULT_MS);
+    game.nextRoundTimer = scheduleTimer(() => nextQuestion(roomId), resultMs);
     return game;
   }
 
-  return { games, createGame, getGame, startGame, nextQuestion, submitAnswer, lockQuestion, endGame, pauseGame, resumeGame };
+  function getPlayerRoundResult(game, playerId) {
+    const submission = game.submissions.get(playerId);
+    return {
+      questionId: game.questions[game.currentRoundIndex].id,
+      isCorrect: submission ? submission.isCorrect : false,
+      xpEarned: submission ? submission.xpEarned : 0
+    };
+  }
+
+  function getGameResult(game) {
+    return { winner: determineWinner(game), teamScores: game.teamScores };
+  }
+
+  function getPlayerGameResult(game, playerId) {
+    const player = game.room.players.get(playerId);
+    if (!player) throw gameError('PLAYER_NOT_FOUND', 'Player not found');
+    let submitted = 0;
+    let correct = 0;
+    const missedQuestions = [];
+    for (let index = 0; index <= game.currentRoundIndex; index += 1) {
+      const question = game.questions[index];
+      if (player.joinedAtRound > index) continue;
+      const submission = game.submissionHistory.get(question.id)?.get(playerId);
+      if (submission) submitted += 1;
+      if (submission?.isCorrect) correct += 1;
+      else missedQuestions.push({ questionId: question.id, prompt: question.prompt, correctAnswer: question.correctAnswer });
+    }
+    return { xp: player.xp, accuracy: submitted > 0 ? correct / submitted : 0, missedQuestions };
+  }
+
+  function getStateSnapshot(roomId, playerId = null) {
+    const game = requireGame(roomId);
+    const snapshot = {
+      roomId, state: game.state, currentRoundIndex: game.currentRoundIndex,
+      teamScores: game.teamScores, endsAt: game.endsAt, serverNow: now()
+    };
+    if (game.state === STATES.QUESTION_ACTIVE) snapshot.question = getQuestionPayload(game);
+    if (game.state === STATES.ROUND_RESULT) snapshot.roundResult = getRoundResult(game);
+    if (game.state === STATES.FINISHED) snapshot.gameResult = getGameResult(game);
+    if (playerId && game.currentRoundIndex >= 0 && game.state === STATES.ROUND_RESULT) {
+      snapshot.playerRoundResult = getPlayerRoundResult(game, playerId);
+    }
+    if (playerId && game.state === STATES.FINISHED) snapshot.personalResult = getPlayerGameResult(game, playerId);
+    return snapshot;
+  }
+
+  function resetGame(roomId) {
+    const game = requireGame(roomId);
+    if (game.state !== STATES.FINISHED) throw gameError('INVALID_STATE', 'Only a finished game can be reset');
+    games.delete(roomId);
+    game.room.state = STATES.LOBBY;
+    for (const player of game.room.players.values()) {
+      player.xp = 0;
+      player.answeredQuestions.clear();
+      player.joinedAtRound = 0;
+    }
+    return game.room;
+  }
+
+  return {
+    games, createGame, getGame, startGame, nextQuestion, submitAnswer, lockQuestion, endGame,
+    pauseGame, resumeGame, getPlayerRoundResult, getPlayerGameResult, getStateSnapshot, resetGame
+  };
 }
 
 const defaultManager = createGameManager();

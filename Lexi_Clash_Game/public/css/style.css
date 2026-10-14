@@ -46,10 +46,53 @@ input:focus { outline: 3px solid rgba(59, 130, 246, 0.2); border-color: var(--bl
 .empty { padding: 16px; color: var(--muted); text-align: center; }
 .start-button { display: block; min-width: 280px; margin: 28px auto 0; }
 .toast { position: fixed; right: 20px; bottom: 20px; max-width: min(380px, calc(100% - 40px)); padding: 14px 18px; border-radius: 12px; color: white; background: #b91c1c; box-shadow: var(--shadow); }
+.center-screen { min-height: calc(100vh - 96px); display: grid; place-content: center; justify-items: center; gap: 14px; text-align: center; }
+.center-screen h1 { margin: 0; font-size: clamp(2rem, 7vw, 4.5rem); }
+.countdown { font-size: clamp(7rem, 28vw, 16rem); font-weight: 900; color: var(--blue); line-height: 1; }
+.status-icon { display: grid; place-items: center; width: 90px; height: 90px; border-radius: 50%; color: white; background: linear-gradient(135deg, var(--blue), #6366f1); font-size: 2.8rem; }
+.game-screen { display: grid; gap: 22px; }
+.scoreboard, .result-scores, .final-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.scoreboard > div { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.score-track { grid-column: 1 / -1; height: 10px; overflow: hidden; border-radius: 999px; background: #dbe2f1; }
+.score-track i { display: block; height: 100%; transition: width 400ms ease; }
+.red-fill { background: var(--red); }
+.blue-fill { background: var(--blue); }
+.round-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 800; }
+.boss { padding: 7px 12px; border-radius: 999px; color: #7c2d12; background: #fed7aa; }
+.timer { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.timer.urgent { color: #b91c1c; animation: pulse 700ms infinite alternate; }
+.question-card, .answer-reveal, .personal-summary { padding: clamp(22px, 5vw, 48px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.question-card h1 { margin: 14px 0 28px; font-size: clamp(1.6rem, 4vw, 2.8rem); white-space: pre-line; }
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.option { min-height: 64px; padding: 12px 18px; border: 2px solid var(--border); border-radius: 14px; color: var(--ink); background: white; cursor: pointer; text-align: left; }
+.option b { display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: 12px; border-radius: 8px; color: white; background: var(--blue); }
+.option:hover:not(:disabled) { border-color: var(--blue); transform: translateY(-2px); }
+.option:disabled { cursor: not-allowed; opacity: 0.55; }
+.answer-form { display: flex; gap: 12px; }
+.answer-form input { flex: 1; }
+.submission-status, .host-notice { text-align: center; color: var(--muted); }
+.answer-reveal { width: min(720px, 100%); }
+.answer-reveal strong { display: block; margin: 10px; font-size: 2rem; color: #047857; }
+.result-scores { width: min(620px, 100%); font-size: 1.2rem; }
+.result-scores > div, .final-scores > div { padding: 20px; border-radius: 14px; background: white; }
+.red-text { color: #b91c1c; }
+.blue-text { color: #1d4ed8; }
+.final-scores { width: min(700px, 100%); }
+.final-scores strong { display: block; font-size: 3rem; }
+.final-scores small { color: var(--muted); }
+.personal-summary { width: min(760px, 100%); text-align: left; }
+.personal-summary ul { display: grid; gap: 8px; padding-left: 22px; }
+.personal-summary li strong { display: block; color: #047857; }
+.xp-earned { color: #047857; font-size: 1.5rem; font-weight: 900; }
+.result-actions { display: flex; gap: 12px; }
+body.disconnected::before { content: 'Mất kết nối — đang thử lại…'; position: fixed; z-index: 5; top: 0; left: 0; right: 0; padding: 8px; color: white; background: #b91c1c; text-align: center; }
+@keyframes pulse { to { transform: scale(1.12); } }
 
 @media (max-width: 700px) {
   #app { padding: 24px 0; }
   .join-grid, .teams { grid-template-columns: 1fr; }
+  .options { grid-template-columns: 1fr; }
+  .answer-form { flex-direction: column; }
   .lobby-header { align-items: flex-start; flex-direction: column; }
   .room-code { font-size: 2.4rem; }
 }

@@ -38,4 +38,5 @@ export function renderLobbyScreen(container, state, actions) {
   container.querySelectorAll('.move-button').forEach((button) => {
     button.addEventListener('click', () => actions.onMovePlayer(button.dataset.playerId, button.dataset.targetTeam));
   });
+  container.querySelector('.start-button')?.addEventListener('click', actions.onStart);
 }

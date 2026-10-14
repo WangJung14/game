@@ -1,0 +1,144 @@
+[
+  {
+    "id": "vocab_001",
+    "type": "multiple_choice",
+    "level": "A2",
+    "topic": "school",
+    "prompt": "Choose the closest meaning of \"careful\".",
+    "options": [
+      { "id": "A", "text": "lazy" },
+      { "id": "B", "text": "cautious" },
+      { "id": "C", "text": "noisy" },
+      { "id": "D", "text": "rude" }
+    ],
+    "correctAnswer": "B",
+    "acceptedAnswers": ["B"],
+    "explanation": "\"Careful\" means giving close attention to avoid mistakes or danger. \"Cautious\" has the same meaning.",
+    "timeLimitSec": 20,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "vocab_002",
+    "type": "multiple_choice",
+    "level": "A2",
+    "topic": "daily_life",
+    "prompt": "Which word means \"very happy\"?",
+    "options": [
+      { "id": "A", "text": "angry" },
+      { "id": "B", "text": "tired" },
+      { "id": "C", "text": "delighted" },
+      { "id": "D", "text": "worried" }
+    ],
+    "correctAnswer": "C",
+    "acceptedAnswers": ["C"],
+    "explanation": "\"Delighted\" means extremely pleased or happy.",
+    "timeLimitSec": 20,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "vocab_003",
+    "type": "multiple_choice",
+    "level": "A2",
+    "topic": "food",
+    "prompt": "What do you call a meal eaten in the morning?",
+    "options": [
+      { "id": "A", "text": "dinner" },
+      { "id": "B", "text": "supper" },
+      { "id": "C", "text": "lunch" },
+      { "id": "D", "text": "breakfast" }
+    ],
+    "correctAnswer": "D",
+    "acceptedAnswers": ["D"],
+    "explanation": "\"Breakfast\" is the first meal of the day, eaten in the morning.",
+    "timeLimitSec": 15,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "vocab_004",
+    "type": "multiple_choice",
+    "level": "A2",
+    "topic": "travel",
+    "prompt": "Which word means \"to go back to a place you came from\"?",
+    "options": [
+      { "id": "A", "text": "arrive" },
+      { "id": "B", "text": "depart" },
+      { "id": "C", "text": "return" },
+      { "id": "D", "text": "explore" }
+    ],
+    "correctAnswer": "C",
+    "acceptedAnswers": ["C"],
+    "explanation": "\"Return\" means to come or go back to a place where you were before.",
+    "timeLimitSec": 20,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "spell_001",
+    "type": "word_forge",
+    "level": "A2",
+    "topic": "school",
+    "prompt": "A place where students borrow books. (Type the word)",
+    "options": null,
+    "correctAnswer": "library",
+    "acceptedAnswers": ["library"],
+    "explanation": "A \"library\" is a building or room where books and other materials are kept for people to read or borrow.",
+    "timeLimitSec": 30,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "gram_001",
+    "type": "multiple_choice",
+    "level": "A2",
+    "topic": "school",
+    "prompt": "Choose the correct sentence:",
+    "options": [
+      { "id": "A", "text": "She go to school every day." },
+      { "id": "B", "text": "She goes to school every day." },
+      { "id": "C", "text": "She going to school every day." },
+      { "id": "D", "text": "She gone to school every day." }
+    ],
+    "correctAnswer": "B",
+    "acceptedAnswers": ["B"],
+    "explanation": "With third-person singular subjects (he, she, it), we add -s/-es to the verb in simple present: \"She goes\".",
+    "timeLimitSec": 25,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "spell_002",
+    "type": "word_forge",
+    "level": "A2",
+    "topic": "daily_life",
+    "prompt": "The day after Monday. (Type the word)",
+    "options": null,
+    "correctAnswer": "tuesday",
+    "acceptedAnswers": ["tuesday", "Tuesday"],
+    "explanation": "\"Tuesday\" is the second day of the week, coming after Monday.",
+    "timeLimitSec": 25,
+    "isBossRound": false,
+    "points": 100
+  },
+  {
+    "id": "boss_001",
+    "type": "multiple_choice",
+    "level": "B1",
+    "topic": "daily_life",
+    "prompt": "BOSS ROUND — Choose the word that best completes the sentence:\n\"Despite the rain, she decided to ______ with her outdoor plan.\"",
+    "options": [
+      { "id": "A", "text": "proceed" },
+      { "id": "B", "text": "prevent" },
+      { "id": "C", "text": "protest" },
+      { "id": "D", "text": "pretend" }
+    ],
+    "correctAnswer": "A",
+    "acceptedAnswers": ["A"],
+    "explanation": "\"Proceed\" means to continue doing something after a pause or in spite of difficulties. \"Despite the rain, she decided to proceed\" = she went ahead with her plan.",
+    "timeLimitSec": 35,
+    "isBossRound": true,
+    "points": 100
+  }
+]
