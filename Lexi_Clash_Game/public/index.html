@@ -7,11 +7,9 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <div id="app">
-    <h1>LEXI CLASH</h1>
-    <p>English Battle Arena</p>
-    <p><em>Đang khởi động...</em></p>
-  </div>
-  <script src="/js/app.js"></script>
+  <main id="app" aria-live="polite"></main>
+  <div id="toast" class="toast" role="alert" aria-live="assertive" hidden></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>

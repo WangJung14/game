@@ -1,36 +1,55 @@
-/* Lexi Clash — CSS skeleton (M0 placeholder) */
 :root {
-  --color-red: #e74c3c;
-  --color-blue: #3498db;
-  --color-bg: #1a1a2e;
-  --color-surface: #16213e;
-  --color-text: #eaeaea;
-  --color-text-muted: #a0a0b0;
-  --color-success: #2ecc71;
-  --color-error: #e74c3c;
-  --font-main: 'Nunito', 'Segoe UI', sans-serif;
-  --radius: 8px;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --ink: #172033;
+  --muted: #697386;
+  --surface: #ffffff;
+  --background: #eef2ff;
+  --border: #dbe2f1;
+  --radius: 18px;
+  --shadow: 0 18px 50px rgba(38, 51, 77, 0.12);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; color: var(--ink); background: radial-gradient(circle at top left, #dbeafe, transparent 40%), var(--background); font-family: Inter, "Segoe UI", sans-serif; }
+button, input { font: inherit; }
+#app { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
+.brand { text-align: center; margin-bottom: 36px; }
+.brand h1 { margin: 8px 0; font-size: clamp(2.6rem, 8vw, 5rem); letter-spacing: -0.06em; }
+.brand h1 span { color: var(--red); }
+.eyebrow { margin: 0; color: var(--blue); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.brand > p:last-child, .lobby-message, .host-card p { color: var(--muted); }
+.join-grid, .teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.panel, .team-panel { padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel { display: grid; gap: 12px; }
+.panel h2, .team-panel h2 { margin: 0 0 8px; }
+label { font-weight: 700; }
+input { min-height: 48px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; color: var(--ink); }
+#room-code { text-transform: uppercase; letter-spacing: 0.15em; }
+input:focus { outline: 3px solid rgba(59, 130, 246, 0.2); border-color: var(--blue); }
+.button { min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; cursor: pointer; font-weight: 800; }
+.button.primary { color: white; background: linear-gradient(135deg, var(--blue), #6366f1); }
+.button.secondary { color: var(--blue); background: #eff6ff; border: 1px solid #bfdbfe; }
+.button:disabled { cursor: not-allowed; opacity: 0.55; }
+.lobby-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.room-code { margin: 4px 0 0; font-size: clamp(2.2rem, 7vw, 4rem); letter-spacing: 0.15em; }
+.connection-pill { padding: 8px 12px; border-radius: 999px; color: #047857; background: #d1fae5; font-weight: 700; }
+.lobby-message { margin: 18px 0 28px; }
+.team-panel h2 { display: flex; justify-content: space-between; }
+.red-team { border-top: 6px solid var(--red); }
+.blue-team { border-top: 6px solid var(--blue); }
+.team-panel ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.player { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 8px 10px; border-radius: 12px; background: #f8fafc; }
+.player.offline { opacity: 0.5; }
+.avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: white; background: var(--ink); font-weight: 800; }
+.move-button { margin-left: auto; min-height: 36px; border: 0; border-radius: 8px; color: var(--muted); background: #e9eef7; cursor: pointer; }
+.empty { padding: 16px; color: var(--muted); text-align: center; }
+.start-button { display: block; min-width: 280px; margin: 28px auto 0; }
+.toast { position: fixed; right: 20px; bottom: 20px; max-width: min(380px, calc(100% - 40px)); padding: 14px 18px; border-radius: 12px; color: white; background: #b91c1c; box-shadow: var(--shadow); }
 
-body {
-  font-family: var(--font-main);
-  background: var(--color-bg);
-  color: var(--color-text);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#app {
-  text-align: center;
-  padding: 2rem;
-}
-
-h1 {
-  font-size: 2.5rem;
-  letter-spacing: 0.1em;
-  color: var(--color-red);
+@media (max-width: 700px) {
+  #app { padding: 24px 0; }
+  .join-grid, .teams { grid-template-columns: 1fr; }
+  .lobby-header { align-items: flex-start; flex-direction: column; }
+  .room-code { font-size: 2.4rem; }
 }
