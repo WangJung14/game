@@ -72,6 +72,10 @@ Backend import JSON/CSV theo room đã được triển khai. Chạy migration `
 
 Host có thể import JSON ngay trong lobby, tải file mẫu và sao chép prompt tạo đề cho ChatGPT. Xem schema và cách seed Supabase tại `docs/QUESTION_IMPORT_GUIDE.md`. Chạy `npm.cmd run seed:supabase` để nạp `data/question-set.seed.json` vào bảng `room_question_sets`.
 
+## Deploy Render
+
+Repository dùng `render.yaml` ở git root và đặt `rootDir: Lexi_Clash_Game`. Nếu cấu hình Web Service thủ công, đặt **Root Directory** là `Lexi_Clash_Game`, **Build Command** là `npm ci`, **Start Command** là `npm start` và **Health Check Path** là `/ping`. Khai báo `SUPABASE_URL` cùng `SUPABASE_SECRET_KEY` trong Render Environment; không upload `.env`.
+
 ## Nguồn và giấy phép
 
 Ứng dụng dùng Express và Socket.IO. Giao diện dùng system font và artwork được cung cấp trong `public/assets`, không tải font hoặc hình ảnh từ CDN. Chủ dự án lưu thông tin nguồn/giấy phép artwork và audio khi bổ sung.

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: lexi-clash
+    runtime: node
+    rootDir: Lexi_Clash_Game
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.20.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
