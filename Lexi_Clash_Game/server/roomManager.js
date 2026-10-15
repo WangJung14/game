@@ -28,6 +28,7 @@ function createRoomManager(options = {}) {
   const rooms = options.rooms || new Map();
   const now = options.now || Date.now;
   const createId = options.createId || randomUUID;
+  const random = options.random || Math.random;
   const roomTtlMs = options.roomTtlMs || ROOM_TTL_MS;
   const rejoinWindowMs = options.rejoinWindowMs || REJOIN_WINDOW_MS;
 
@@ -61,6 +62,7 @@ function createRoomManager(options = {}) {
     const roomId = generateRoomCode();
     const room = {
       roomId, hostSocketId, hostToken: createId(), state: 'LOBBY', players: new Map(),
+      teamLeaders: { red: null, blue: null },
       createdAt, lastActivityAt: createdAt, ttl: createdAt + roomTtlMs
     };
     rooms.set(roomId, room);
@@ -85,6 +87,23 @@ function createRoomManager(options = {}) {
     return Array.from(room.players.values()).filter((player) => player.team === team && player.isConnected).length;
   }
 
+  function assignTeamLeader(room, team, force = false) {
+    const candidates = Array.from(room.players.values()).filter((player) => player.team === team && player.isConnected);
+    const current = room.players.get(room.teamLeaders[team]);
+    if (!force && current?.isConnected && current.team === team) return current;
+    const selected = candidates.length ? candidates[Math.min(candidates.length - 1, Math.floor(random() * candidates.length))] : null;
+    room.teamLeaders[team] = selected?.playerId || null;
+    return selected;
+  }
+
+  function assignTeamLeaders(roomCode, force = true) {
+    const room = requireRoom(roomCode);
+    assignTeamLeader(room, 'red', force);
+    assignTeamLeader(room, 'blue', force);
+    touch(room);
+    return room.teamLeaders;
+  }
+
   function joinRoom(roomCode, displayName, socketId = null, currentRoundIndex = -1) {
     const room = requireRoom(roomCode);
     if (room.state === 'FINISHED') throw roomError('ROOM_FINISHED', 'Room has finished');
@@ -100,6 +119,7 @@ function createRoomManager(options = {}) {
       xp: 0, answeredQuestions: new Set()
     };
     room.players.set(player.playerId, player);
+    assignTeamLeader(room, player.team);
     touch(room);
     return player;
   }
@@ -111,6 +131,7 @@ function createRoomManager(options = {}) {
     player.socketId = null;
     player.isConnected = false;
     player.disconnectedAt = now();
+    if (room.teamLeaders[player.team] === playerId) assignTeamLeader(room, player.team, true);
     touch(room);
     return player;
   }
@@ -127,6 +148,7 @@ function createRoomManager(options = {}) {
     player.socketId = socketId;
     player.isConnected = true;
     player.disconnectedAt = null;
+    assignTeamLeader(room, player.team);
     touch(room);
     return player;
   }
@@ -137,7 +159,10 @@ function createRoomManager(options = {}) {
     if (targetTeam !== 'red' && targetTeam !== 'blue') throw roomError('INVALID_TEAM', 'Target team must be red or blue');
     const player = room.players.get(playerId);
     if (!player) throw roomError('PLAYER_NOT_FOUND', 'Player not found');
+    const previousTeam = player.team;
     player.team = targetTeam;
+    if (room.teamLeaders[previousTeam] === playerId) assignTeamLeader(room, previousTeam, true);
+    assignTeamLeader(room, targetTeam);
     touch(room);
     return player;
   }
@@ -179,7 +204,8 @@ function createRoomManager(options = {}) {
       state: room.state,
       players: Array.from(room.players.values(), (player) => ({
         playerId: player.playerId, displayName: player.displayName, team: player.team,
-        isConnected: player.isConnected, xp: player.xp
+        isConnected: player.isConnected, xp: player.xp,
+        isLeader: room.teamLeaders[player.team] === player.playerId
       })),
       canStart: canStart(room)
     };
@@ -190,7 +216,7 @@ function createRoomManager(options = {}) {
   }
 
   return {
-    rooms, createRoom, getRoom, joinRoom, leaveRoom, rejoinRoom, movePlayer, canStart,
+    rooms, createRoom, getRoom, joinRoom, leaveRoom, rejoinRoom, movePlayer, canStart, assignTeamLeaders,
     getRoomState, removeDisconnectedPlayers, cleanupExpired, deleteRoom
   };
 }

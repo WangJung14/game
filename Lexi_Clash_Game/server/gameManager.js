@@ -30,6 +30,7 @@ function createGameManager(options = {}) {
   const countdownMs = options.countdownMs ?? COUNTDOWN_MS;
   const graceMs = options.graceMs ?? GRACE_MS;
   const resultMs = options.resultMs ?? RESULT_MS;
+  const random = options.random || Math.random;
   const onEvent = options.onEvent || (() => {});
 
   function transition(game, allowedStates, nextState) {
@@ -44,11 +45,16 @@ function createGameManager(options = {}) {
     if (!room || room.state !== STATES.LOBBY) throw gameError('INVALID_STATE', 'Game can only be created from the lobby');
     if (!Array.isArray(questions) || questions.length === 0) throw gameError('NO_QUESTIONS', 'At least one question is required');
     if (games.has(room.roomId)) throw gameError('GAME_EXISTS', 'A game already exists for this room');
+    const duelCandidates = questions.map((question, index) => ({ question, index }))
+      .filter(({ question }) => !question.isBossRound);
+    const candidates = duelCandidates.length ? duelCandidates : questions.map((question, index) => ({ question, index }));
+    const leaderDuelRoundIndex = candidates[Math.min(candidates.length - 1, Math.floor(random() * candidates.length))].index;
     const game = {
       roomId: room.roomId, room, questions: questions.slice(), currentRoundIndex: -1, state: STATES.LOBBY,
       previousState: null, roundTimer: null, nextRoundTimer: null, roundStartedAt: null, endsAt: null,
       submissions: new Map(), submissionHistory: new Map(),
-      teamScores: { red: createTeamScore(), blue: createTeamScore() }, pausedAt: null
+      teamScores: { red: createTeamScore(), blue: createTeamScore() },
+      leaderDuelRoundIndex, leaderDuelPlayers: null, pausedAt: null
     };
     games.set(room.roomId, game);
     return game;
@@ -89,6 +95,9 @@ function createGameManager(options = {}) {
     if (game.state === STATES.ROUND_RESULT && game.currentRoundIndex >= game.questions.length - 1) return endGame(roomId);
     transition(game, [STATES.COUNTDOWN, STATES.ROUND_RESULT], STATES.QUESTION_ACTIVE);
     game.currentRoundIndex += 1;
+    if (game.currentRoundIndex === game.leaderDuelRoundIndex) {
+      game.leaderDuelPlayers = { ...game.room.teamLeaders };
+    }
     game.submissions = new Map();
     game.roundStartedAt = now();
     const question = game.questions[game.currentRoundIndex];
@@ -105,7 +114,8 @@ function createGameManager(options = {}) {
     const payload = {
       questionId: question.id, roundNumber: game.currentRoundIndex + 1, totalRounds: game.questions.length,
       type: question.type, prompt: question.prompt, timeLimitSec: question.timeLimitSec,
-      endsAt: game.endsAt, serverNow: now(), isBossRound: question.isBossRound
+      endsAt: game.endsAt, serverNow: now(), isBossRound: question.isBossRound,
+      isLeaderDuel: game.currentRoundIndex === game.leaderDuelRoundIndex
     };
     if (question.type === 'multiple_choice') payload.options = question.options;
     return payload;
@@ -121,6 +131,9 @@ function createGameManager(options = {}) {
     const player = game.room.players.get(playerId);
     if (!player || !player.isConnected) throw gameError('PLAYER_NOT_FOUND', 'Connected player not found');
     if (player.joinedAtRound > game.currentRoundIndex) throw gameError('NOT_ELIGIBLE', 'Player becomes eligible next round');
+    if (!isPlayerEligibleForRound(game, player, game.currentRoundIndex)) {
+      throw gameError('LEADER_DUEL_ONLY', 'Only team leaders can answer during the leader duel');
+    }
     if (game.submissions.has(playerId) || player.answeredQuestions.has(questionId)) {
       throw gameError('ALREADY_ANSWERED', 'Player has already answered this question');
     }
@@ -139,21 +152,41 @@ function createGameManager(options = {}) {
     transition(game, [STATES.QUESTION_ACTIVE], STATES.QUESTION_LOCKED);
     if (game.roundTimer) cancel(game.roundTimer);
     const question = game.questions[game.currentRoundIndex];
+    const isLeaderDuel = game.currentRoundIndex === game.leaderDuelRoundIndex;
+    const roundScores = {};
     for (const team of ['red', 'blue']) {
       const roster = Array.from(game.room.players.values()).filter((player) =>
-        player.team === team && player.isConnected && player.joinedAtRound <= game.currentRoundIndex);
+        player.team === team && player.isConnected && player.joinedAtRound <= game.currentRoundIndex &&
+        isPlayerEligibleForRound(game, player, game.currentRoundIndex));
       const submissions = roster.map((player) => game.submissions.get(player.playerId)).filter(Boolean);
       const correctCount = submissions.filter((submission) => submission.isCorrect).length;
       const roundDelta = calcBattleScore(correctCount, submissions.length, roster.length, question.isBossRound);
       const totalXP = submissions.reduce((sum, submission) => sum + submission.xpEarned, 0);
-      const score = game.teamScores[team];
-      score.battleScore += roundDelta;
-      score.totalXP += totalXP;
-      score.roundHistory.push({
-        roundIndex: game.currentRoundIndex, roundDelta,
+      roundScores[team] = {
+        roundDelta, submission: submissions[0] || null,
         accuracy: submissions.length > 0 ? correctCount / submissions.length : 0,
         participation: roster.length > 0 ? submissions.length / roster.length : 0,
         correctCount, submittedCount: submissions.length
+      };
+      const score = game.teamScores[team];
+      score.totalXP += totalXP;
+    }
+    const duelResult = isLeaderDuel ? resolveLeaderDuel(roundScores) : null;
+    for (const team of ['red', 'blue']) {
+      const opponent = team === 'red' ? 'blue' : 'red';
+      const baseDelta = roundScores[team].roundDelta;
+      const bonus = duelResult?.winner === team ? baseDelta : 0;
+      const penalty = duelResult?.winner === opponent ? roundScores[opponent].roundDelta : 0;
+      const roundDelta = baseDelta + bonus - penalty;
+      const score = game.teamScores[team];
+      score.battleScore = Math.max(0, score.battleScore + roundDelta);
+      score.roundHistory.push({
+        roundIndex: game.currentRoundIndex, roundDelta, baseDelta, bonus, penalty,
+        accuracy: roundScores[team].accuracy,
+        participation: roundScores[team].participation,
+        correctCount: roundScores[team].correctCount,
+        submittedCount: roundScores[team].submittedCount,
+        isLeaderDuel
       });
     }
     transition(game, [STATES.QUESTION_LOCKED], STATES.ROUND_RESULT);
@@ -163,16 +196,48 @@ function createGameManager(options = {}) {
     return payload;
   }
 
+  function resolveLeaderDuel(roundScores) {
+    const red = roundScores.red.submission;
+    const blue = roundScores.blue.submission;
+    let winner = null;
+    if (red?.isCorrect !== blue?.isCorrect) winner = red?.isCorrect ? 'red' : 'blue';
+    else if (red && blue && red.submittedAt !== blue.submittedAt) winner = red.submittedAt < blue.submittedAt ? 'red' : 'blue';
+    else if (red && !blue) winner = 'red';
+    else if (blue && !red) winner = 'blue';
+    return {
+      winner,
+      red: { playerId: red?.playerId || null, isCorrect: red?.isCorrect || false },
+      blue: { playerId: blue?.playerId || null, isCorrect: blue?.isCorrect || false }
+    };
+  }
+
   function getRoundResult(game) {
     const question = game.questions[game.currentRoundIndex];
+    const isLeaderDuel = game.currentRoundIndex === game.leaderDuelRoundIndex;
+    const duelResult = isLeaderDuel
+      ? resolveLeaderDuel({
+          red: { submission: game.submissions.get(game.leaderDuelPlayers.red) || null },
+          blue: { submission: game.submissions.get(game.leaderDuelPlayers.blue) || null }
+        })
+      : null;
+    if (duelResult) {
+      for (const team of ['red', 'blue']) {
+        const history = game.teamScores[team].roundHistory.at(-1);
+        duelResult[team].bonus = history?.bonus || 0;
+        duelResult[team].penalty = history?.penalty || 0;
+        duelResult[team].roundDelta = history?.roundDelta || 0;
+      }
+    }
     return {
       questionId: question.id, correctAnswer: question.correctAnswer, explanation: question.explanation,
       submittedCount: game.submissions.size,
-      totalPlayers: Array.from(game.room.players.values()).filter((player) => player.isConnected).length,
+      totalPlayers: Array.from(game.room.players.values()).filter((player) =>
+        player.isConnected && isPlayerEligibleForRound(game, player, game.currentRoundIndex)).length,
       playerSummary: Array.from(game.submissions.values(), (submission) => ({
         playerId: submission.playerId, team: game.room.players.get(submission.playerId).team, isCorrect: submission.isCorrect
       })),
-      teamScores: game.teamScores, roundNumber: game.currentRoundIndex + 1, totalRounds: game.questions.length
+      teamScores: game.teamScores, roundNumber: game.currentRoundIndex + 1, totalRounds: game.questions.length,
+      isLeaderDuel, leaderDuelResult: duelResult
     };
   }
 
@@ -242,24 +307,50 @@ function createGameManager(options = {}) {
   }
 
   function getGameResult(game) {
-    return { winner: determineWinner(game), teamScores: game.teamScores };
+    return { winner: determineWinner(game), teamScores: game.teamScores, leaderboard: getLeaderboard(game) };
   }
 
-  function getPlayerGameResult(game, playerId) {
-    const player = game.room.players.get(playerId);
-    if (!player) throw gameError('PLAYER_NOT_FOUND', 'Player not found');
+  function getPlayerStats(game, player) {
     let submitted = 0;
     let correct = 0;
     const missedQuestions = [];
     for (let index = 0; index <= game.currentRoundIndex; index += 1) {
       const question = game.questions[index];
-      if (player.joinedAtRound > index) continue;
-      const submission = game.submissionHistory.get(question.id)?.get(playerId);
+      if (!isPlayerEligibleForRound(game, player, index)) continue;
+      const submission = game.submissionHistory.get(question.id)?.get(player.playerId);
       if (submission) submitted += 1;
       if (submission?.isCorrect) correct += 1;
       else missedQuestions.push({ questionId: question.id, prompt: question.prompt, correctAnswer: question.correctAnswer });
     }
-    return { xp: player.xp, accuracy: submitted > 0 ? correct / submitted : 0, missedQuestions };
+    return { submitted, correct, accuracy: submitted > 0 ? correct / submitted : 0, missedQuestions };
+  }
+
+  function isPlayerEligibleForRound(game, player, roundIndex) {
+    if (player.joinedAtRound > roundIndex) return false;
+    if (roundIndex !== game.leaderDuelRoundIndex) return true;
+    return game.leaderDuelPlayers?.[player.team] === player.playerId;
+  }
+
+  function getLeaderboard(game) {
+    return Array.from(game.room.players.values(), (player) => {
+      const stats = getPlayerStats(game, player);
+      return {
+        playerId: player.playerId, displayName: player.displayName, team: player.team,
+        isLeader: game.room.teamLeaders?.[player.team] === player.playerId,
+        xp: player.xp, accuracy: stats.accuracy,
+        correctAnswers: stats.correct, submittedAnswers: stats.submitted
+      };
+    }).sort((first, second) =>
+      second.xp - first.xp || second.accuracy - first.accuracy ||
+      second.correctAnswers - first.correctAnswers || first.displayName.localeCompare(second.displayName)
+    ).map((player, index) => ({ rank: index + 1, ...player }));
+  }
+
+  function getPlayerGameResult(game, playerId) {
+    const player = game.room.players.get(playerId);
+    if (!player) throw gameError('PLAYER_NOT_FOUND', 'Player not found');
+    const stats = getPlayerStats(game, player);
+    return { xp: player.xp, accuracy: stats.accuracy, missedQuestions: stats.missedQuestions };
   }
 
   function getStateSnapshot(roomId, playerId = null) {

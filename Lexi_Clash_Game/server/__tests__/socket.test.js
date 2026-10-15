@@ -4,6 +4,7 @@ const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { io: createClient } = require('socket.io-client');
 const { createLexiServer } = require('../index');
+const { createMemoryQuestionStore } = require('../questionStore');
 
 const gameQuestions = Array.from({ length: 8 }, (_value, index) => index === 7
   ? {
@@ -43,7 +44,8 @@ describe('Socket.IO lobby integration', () => {
   beforeEach(async () => {
     server = createLexiServer({
       questions: gameQuestions,
-      gameOptions: { countdownMs: 20, graceMs: 10, resultMs: 1000 },
+      questionStore: createMemoryQuestionStore(),
+      gameOptions: { countdownMs: 20, graceMs: 10, resultMs: 1000, random: () => 0 },
       answerRateWindowMs: 100
     });
     const address = await server.listen(0);
@@ -82,6 +84,41 @@ describe('Socket.IO lobby integration', () => {
     const created = await createRoom(host);
     assert.match(created.roomCode, /^[ACDEFGHJKMNPQRTUVWXY]{6}$/);
     assert.equal(typeof created.hostToken, 'string');
+    const deepLink = await fetch(`${url}/room=${created.roomCode}`);
+    assert.equal(deepLink.status, 200);
+    assert.match(await deepLink.text(), /id="app"/);
+  });
+
+  test('Host imports room questions while other clients are denied', async () => {
+    const host = await connect();
+    const player = await connect();
+    const secondPlayer = await connect();
+    const created = await createRoom(host);
+    const imported = [{
+      type: 'multiple_choice', level: 'A2', topic: 'custom', prompt: 'Imported question',
+      options: [{ id: 'A', text: 'Wrong' }, { id: 'B', text: 'Right' }],
+      correctAnswer: 'B', acceptedAnswers: ['B'], explanation: 'B is right',
+      timeLimitSec: 20, isBossRound: false, points: 100
+    }];
+    const denied = await fetch(`${url}/api/rooms/${created.roomCode}/questions`, {
+      method: 'PUT', headers: { 'content-type': 'application/json', 'x-host-token': 'wrong' },
+      body: JSON.stringify({ questions: imported })
+    });
+    assert.equal(denied.status, 403);
+    const response = await fetch(`${url}/api/rooms/${created.roomCode}/questions`, {
+      method: 'PUT', headers: { 'content-type': 'application/json', 'x-host-token': created.hostToken, 'x-question-set-title': 'Custom lesson' },
+      body: JSON.stringify({ questions: imported })
+    });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.count, 1);
+    assert.equal(result.questions[0].id, 'import_001');
+    const joined = emitAndWait(player, 'room:join', { roomCode: created.roomCode, displayName: 'Player' }, 'room:joined');
+    await joined;
+    await emitAndWait(secondPlayer, 'room:join', { roomCode: created.roomCode, displayName: 'Second' }, 'room:joined');
+    const questionPromise = waitFor(player, 'question:show');
+    host.emit('game:start');
+    assert.equal((await questionPromise).prompt, 'Imported question');
   });
 
   test('two players join balanced teams and everyone receives lobby updates', async () => {
@@ -127,6 +164,39 @@ describe('Socket.IO lobby integration', () => {
     const joined = await emitAndWait(player, 'room:join', { roomCode, displayName: 'Minh' }, 'room:joined');
     const error = await emitAndWait(player, 'lobby:movePlayer', { playerId: joined.playerId, targetTeam: 'blue' }, 'error:notice');
     assert.equal(error.code, 'NOT_HOST');
+  });
+
+  test('only host can stop an active question early', async () => {
+    const { host, red, blue } = await setupGame();
+    const questionPromise = waitFor(red, 'question:show');
+    host.emit('game:start');
+    const question = await questionPromise;
+    const forbidden = await emitAndWait(red, 'game:stopQuestion', {}, 'error:notice');
+    assert.equal(forbidden.code, 'NOT_HOST');
+    red.emit('answer:submit', { questionId: question.questionId, answer: 'B' });
+    blue.emit('answer:submit', { questionId: question.questionId, answer: 'A' });
+    const resultPromise = waitFor(host, 'round:result');
+    host.emit('game:stopQuestion');
+    const result = await resultPromise;
+    assert.equal(result.questionId, question.questionId);
+    assert.equal(result.submittedCount, 2);
+  });
+
+  test('only host can end an active game immediately', async () => {
+    const { host, red, created } = await setupGame();
+    const questionPromise = waitFor(red, 'question:show');
+    host.emit('game:start');
+    await questionPromise;
+
+    const forbidden = await emitAndWait(red, 'game:end', {}, 'error:notice');
+    assert.equal(forbidden.code, 'NOT_HOST');
+
+    const gameOverPromise = waitFor(red, 'game:over');
+    host.emit('game:end');
+    const result = await gameOverPromise;
+    assert.ok(['red', 'blue', 'tie'].includes(result.winner));
+    assert.equal(result.leaderboard.length, 2);
+    assert.equal(server.gameManager.getGame(created.roomCode).state, 'FINISHED');
   });
 
   test('invalid room join returns a scoped error', async () => {
@@ -181,8 +251,9 @@ describe('Socket.IO lobby integration', () => {
     blue.emit('answer:submit', { questionId: question.questionId, answer: 'A' });
     const [publicResult, personalResult] = await Promise.all([publicPromise, personalPromise]);
     assert.equal(publicResult.correctAnswer, 'B');
-    assert.equal(publicResult.teamScores.red.battleScore, 100);
-    assert.equal(publicResult.teamScores.blue.battleScore, 30);
+    assert.equal(publicResult.isLeaderDuel, true);
+    assert.equal(publicResult.teamScores.red.battleScore, 200);
+    assert.equal(publicResult.teamScores.blue.battleScore, 0);
     assert.equal(personalResult.isCorrect, true);
     assert.ok(personalResult.xpEarned >= 100);
   });
@@ -207,14 +278,17 @@ describe('Socket.IO lobby integration', () => {
       bossResult = await resultPromise;
     }
     assert.equal(question.isBossRound, true);
-    assert.equal(bossResult.teamScores.red.battleScore, 900);
-    assert.equal(bossResult.teamScores.blue.battleScore, 270);
+    assert.equal(bossResult.teamScores.red.battleScore, 1000);
+    assert.equal(bossResult.teamScores.blue.battleScore, 240);
 
     const gameOverPromise = waitFor(red, 'game:over');
     const personalPromise = waitFor(red, 'game:personal');
     host.emit('game:nextQuestion');
     const [gameOver, personal] = await Promise.all([gameOverPromise, personalPromise]);
     assert.equal(gameOver.winner, 'red');
+    assert.equal(gameOver.leaderboard.length, 2);
+    assert.equal(gameOver.leaderboard[0].displayName, 'Red Player');
+    assert.equal(gameOver.leaderboard[0].rank, 1);
     assert.equal(personal.missedQuestions.length, 0);
     assert.equal(personal.accuracy, 1);
   });

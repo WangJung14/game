@@ -1,4 +1,58 @@
+# Dependencies and package-manager cache
 node_modules/
+.npm/
+.pnpm-store/
+
+# Environment files and secrets
 .env
+.env.*
+!.env.example
+
+# Logs, coverage and runtime output
 *.log
-docs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+.nyc_output/
+dist/
+build/
+
+# Local source-asset processing workspace
+cut_img/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local tool and editor state
+.claude/
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Supabase CLI local state (keep migrations and seed files)
+supabase/.branches/
+supabase/.temp/
+
+# Generated test artifacts
+docs/reports/screenshots/
+test-results/
+playwright-report/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Keep only deliverable project reports under docs
+docs/*
+!docs/QUESTION_IMPORT_GUIDE.md
+!docs/reports/
+docs/reports/*
+!docs/reports/*.md

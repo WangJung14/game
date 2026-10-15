@@ -4,12 +4,13 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { createRoomManager, constants } = require('../roomManager');
 
-function setup() {
+function setup(random = () => 0) {
   let timestamp = 1000;
   let sequence = 0;
   const manager = createRoomManager({
     now: () => timestamp,
-    createId: () => `id-${sequence += 1}`
+    createId: () => `id-${sequence += 1}`,
+    random
   });
   return { manager, advance: (milliseconds) => { timestamp += milliseconds; } };
 }
@@ -117,5 +118,23 @@ describe('roomManager', () => {
     assert.equal(state.players.length, 2);
     assert.equal(state.canStart, true);
     assert.equal(state.players[0].playerToken, undefined);
+  });
+
+  test('keeps one leader per populated team and randomizes leaders on demand', () => {
+    const { manager } = setup(() => 0.999);
+    const room = manager.createRoom();
+    const firstRed = manager.joinRoom(room.roomId, 'Red One');
+    const blue = manager.joinRoom(room.roomId, 'Blue One');
+    const secondRed = manager.joinRoom(room.roomId, 'Red Two');
+    let state = manager.getRoomState(room.roomId);
+    assert.equal(state.players.find((player) => player.playerId === firstRed.playerId).isLeader, true);
+    assert.equal(state.players.find((player) => player.playerId === blue.playerId).isLeader, true);
+    manager.assignTeamLeaders(room.roomId, true);
+    state = manager.getRoomState(room.roomId);
+    assert.equal(state.players.filter((player) => player.team === 'red' && player.isLeader).length, 1);
+    assert.equal(state.players.find((player) => player.playerId === secondRed.playerId).isLeader, true);
+    manager.leaveRoom(room.roomId, secondRed.playerId);
+    state = manager.getRoomState(room.roomId);
+    assert.equal(state.players.find((player) => player.playerId === firstRed.playerId).isLeader, true);
   });
 });

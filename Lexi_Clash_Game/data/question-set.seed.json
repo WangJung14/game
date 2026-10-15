@@ -1,0 +1,58 @@
+{
+  "title": "English A2 Starter Pack",
+  "questions": [
+    {
+      "id": "seed_vocab_001",
+      "type": "multiple_choice",
+      "level": "A2",
+      "topic": "vocabulary",
+      "prompt": "Choose the word closest in meaning to 'quick'.",
+      "options": [
+        { "id": "A", "text": "slow" },
+        { "id": "B", "text": "fast" },
+        { "id": "C", "text": "quiet" },
+        { "id": "D", "text": "late" }
+      ],
+      "correctAnswer": "B",
+      "acceptedAnswers": ["B"],
+      "explanation": "Fast has a similar meaning to quick.",
+      "timeLimitSec": 20,
+      "isBossRound": false,
+      "points": 100
+    },
+    {
+      "id": "seed_grammar_001",
+      "type": "multiple_choice",
+      "level": "A2",
+      "topic": "grammar",
+      "prompt": "Choose the correct sentence.",
+      "options": [
+        { "id": "A", "text": "He play football every day." },
+        { "id": "B", "text": "He plays football every day." },
+        { "id": "C", "text": "He playing football every day." },
+        { "id": "D", "text": "He played football every day now." }
+      ],
+      "correctAnswer": "B",
+      "acceptedAnswers": ["B"],
+      "explanation": "Use plays with the third-person singular subject he in the simple present.",
+      "timeLimitSec": 25,
+      "isBossRound": false,
+      "points": 100
+    },
+    {
+      "id": "seed_word_001",
+      "type": "word_forge",
+      "level": "A2",
+      "topic": "school",
+      "prompt": "Type the English word for a place where students borrow books.",
+      "options": null,
+      "correctAnswer": "library",
+      "acceptedAnswers": ["library", "Library"],
+      "explanation": "A library is a place where books can be read or borrowed.",
+      "timeLimitSec": 30,
+      "isBossRound": true,
+      "points": 100
+    }
+  ]
+}
+

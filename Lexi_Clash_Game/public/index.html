@@ -5,9 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lexi Clash — English Battle Arena</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/arena.css">
+  <link rel="icon" href="/assets/optimized/App%20Icon.webp">
 </head>
 <body>
-  <main id="app" aria-live="polite"></main>
+  <a class="skip-link" href="#app">Đến nội dung chính</a>
+  <header class="site-header"><a href="/" aria-label="Lexi Clash trang chủ">LEXI <span>CLASH</span></a><span>ENGLISH BATTLE ARENA</span></header>
+  <div id="connection-status" class="connection-banner" role="status" hidden>Mất kết nối · Đang tự động kết nối lại…</div>
+  <main id="app" tabindex="-1"></main>
+  <aside id="audio-controls" class="audio-controls collapsed" aria-label="Điều khiển âm thanh">
+    <button id="audio-panel-toggle" class="audio-panel-toggle" type="button" aria-expanded="false" aria-controls="audio-panel">🔊 Âm thanh</button>
+    <div id="audio-panel" class="audio-panel">
+      <button id="audio-mute" class="audio-button" type="button" aria-pressed="false">🔊 Tắt âm thanh</button>
+      <label>SFX <input id="sfx-volume" type="range" min="0" max="100" value="70" aria-label="Âm lượng hiệu ứng"><output id="sfx-volume-value" for="sfx-volume">70%</output></label>
+      <div id="host-music-controls" hidden>
+        <button id="music-toggle" class="audio-button" type="button" aria-pressed="false">Phát nhạc</button>
+        <label>Nhạc <input id="music-volume" type="range" min="0" max="100" value="35" aria-label="Âm lượng nhạc nền"><output id="music-volume-value" for="music-volume">35%</output></label>
+        <div id="youtube-player-wrap" class="youtube-audio-source" aria-hidden="true"><div id="youtube-player"></div></div>
+      </div>
+      <p id="audio-status" class="sr-only" role="status" aria-live="polite"></p>
+    </div>
+  </aside>
   <div id="toast" class="toast" role="alert" aria-live="assertive" hidden></div>
   <script src="/socket.io/socket.io.js"></script>
   <script type="module" src="/js/app.js"></script>
